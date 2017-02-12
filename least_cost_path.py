@@ -90,10 +90,10 @@ V,2,3,4
 V,3,2,-6
 V,4,-4,-2
 V,5,-3,5
-V,6,5,8
-V,7,1,7
+V,6,5,7
+V,7,1,6
 V,8,-2,-3
-V,9,-5,7
+V,9,-5,6
 E,1,2,ONETOTWOPATH
 E,1,3,ONETOTHREEPATH
 E,3,8,THREETOEIGHTPATH
@@ -158,10 +158,10 @@ def least_cost_path(graph, start, dest, cost):
     runners=MinHeap()
     runners.add(0, (0, start, start))
 
-    while dest not in reached:
+    while len(runners)>0:
         (key, first_runner) = runners.pop_min()
         (t_arrive, v_from, v_to) = first_runner
-        if v_to in reached:
+        if v_to in reached and reached[v_to][0]<t_arrive:
             continue
         reached[v_to] = (t_arrive, v_from)
 
@@ -169,11 +169,19 @@ def least_cost_path(graph, start, dest, cost):
             if v_next in reached:
                 continue
 
-            runners.add(t_arrive, (t_arrive + cost_distance(v_to, v_next), v_to, v_next) )
-    return reached
+            runners.add(t_arrive, (t_arrive + cost_distance(v_to, v_next), v_to, v_next))
+        print(reached)
+    path = []
+    path.append(dest)
+    while start not in path:
+
+          path.append(reached[path[-1]][1])
+    path.reverse()
+    print(reached)
+    return path
 
 
 g = read_city_graph(myfile.split('\n'))
 print(g._vertices)
 print(location_lookup)
-print(least_cost_path(g,1,6, cost_distance))
+print(least_cost_path(g,1,4, cost_distance))

@@ -12,7 +12,6 @@ cost_distance function = 10/1
 find closest vertex = 10/1
 Guidelines = 10/1
 Comments = 1/1
-
 - When start == end, it reports that there is no possible path (N 0)
 - Prints 'E' when there is no route
 - Cannot handle multiple requests
@@ -24,6 +23,7 @@ import argparse
 import math
 from adjacencygraph import AdjacencyGraph
 import queue
+from cs_message import *
 
 myfile = open("edmonton-roads-2.0.1.txt", "r")
 
@@ -31,11 +31,9 @@ def breadth_first_search(g, v):
     '''Discovers all vertices in graph g reachable from vertex v
     and returns the search graph. Paths on the search graph
     are guaranteed to follow shortest paths from v.
-
     Args:
         g (graph): Graph to search in.
         v (vertex of g): Where the search starts from.
-
     Returns:
         dict: Dictionary whose keys are nodes u discovered with value being
         the node from where the node described by the key was discovered.
@@ -262,13 +260,90 @@ def handle_input():
 g = read_city_graph(myfile.readlines())
 
 
+def protocol(serial_in, serial_out):
+    # simple echo protocol
+    while True:
+        while True:
+            msg = receive_msg_from_client(serial_in)
+            log_msg(msg)
+            if msg[0] == "R":
+                break
 
-# import time
-# start_time = time.time()
+        # Hope that it's a properly formatted R message
+        coords = msg[2:].split()
 
-while (True):
-    if not handle_input():
-        break
+        if len(coords) != 4:
+            continue
 
+        (lat_s, lon_s, lat_e, lon_e) = coords
+        lat_s = int(float(lat_s) * 100000)
+        lon_s = int(float(lon_s) * 100000)
+        lat_e = int(float(lat_e) * 100000)
+        lon_e = int(float(lon_e) * 100000)
+        start = find_closest(lat_s, lon_s)
+        dest = find_closest(lat_e, lon_e)
+        if start != dest:
+            path = least_cost_path(g,start,dest,cost_distance)
+            n = len(path)
+            send_msg_to_client(serial_out, "N {}" .format(n))
+            for i in path:
+                temp = location_lookup[i]
+                temp1 = str(temp[0])
+                temp2 = str(temp[1])
+                send_msg_to_client(serial_out, "W {} {}" .format(temp1,temp2))
 
-# print("--- %s seconds ---" % (time.time() - start_time))
+                msg = receive_msg_from_client(serial_in)
+                log_msg(msg)
+
+            send_msg_to_client(serial_out, "E")
+        else:
+            send_msg_to_client(serial_out, "E")
+
+def main():
+
+    import argparse
+    parser = argparse.ArgumentParser(
+        description='Client-server message test.',
+        formatter_class=argparse.RawTextHelpFormatter,
+        )
+
+    parser.add_argument("-d0",
+        help="Debug off",
+        action="store_false",
+        dest="debug")
+
+    parser.add_argument("-s",
+        help="Set serial port for protocol",
+        nargs="?",
+        type=str,
+        dest="serial_port_name",
+        default="/dev/ttyACM0")
+
+    args = parser.parse_args()
+
+    debug = args.debug
+
+    set_logging(debug)
+
+    # this imports serial, and provides a useful wrapper around it
+    import textserial
+
+    serial_port_name = args.serial_port_name;
+    log_msg("Opening serial port: {}".format(serial_port_name))
+
+    # Open up the connection
+    baudrate = 9600  # [bit/seconds] 115200 also works
+
+    # Run the server protocol forever
+
+    # The with statment ensures that if things go bad, then ser
+    # will still be closed properly.
+    # errors='ignore' allows any 1 byte character, not just the usual
+    # ascii range [0,127]
+
+    with textserial.TextSerial(
+        serial_port_name, baudrate, errors='ignore', newline=None) as ser:
+        protocol(ser, ser)
+
+if __name__ == "__main__":
+    main()
